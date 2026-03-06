@@ -1,0 +1,11 @@
+{
+  "accounts": [
+    {
+      "email": "george@urgent.co.nz",
+      "token": "",
+      "clientName": "Urgent Couriers (Test)",
+      "notes": "Test account — George's inbox"
+    }
+  ],
+  "fallback": "use_env_token"
+}

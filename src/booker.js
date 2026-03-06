@@ -1,11 +1,11 @@
 import axios from 'axios';
 import config from '../config/default.js';
 
-function apiClient() {
+function apiClient(tokenOverride) {
   return axios.create({
     baseURL: config.bookingUrl,
     headers: {
-      Authorization: `Bearer ${config.bookingApiToken}`,
+      Authorization: `Bearer ${tokenOverride || config.bookingApiToken}`,
       'Content-Type': 'application/json',
     },
   });
@@ -14,9 +14,9 @@ function apiClient() {
 /**
  * Get rates for a job, returns array of available rates
  */
-async function getRates(from, to, packages) {
+async function getRates(from, to, packages, tokenOverride) {
   console.log('[BOOKER] Getting rates...');
-  const res = await apiClient().post('/api/Rates', { from, to, packages });
+  const res = await apiClient(tokenOverride).post('/api/Rates', { from, to, packages });
   const rates = res.data?.rates || res.data || [];
   console.log(`[BOOKER] ${rates.length} rates available`);
   return rates;
@@ -47,7 +47,7 @@ export function resolveSpeedId(speedKeyword) {
 /**
  * Full flow: get rates → pick rate → book job
  */
-export async function bookJob(job) {
+export async function bookJob(job, tokenOverride) {
   const from = {
     streetAddress: job.fromAddress,
     suburb: job.fromSuburb || '',
@@ -75,7 +75,7 @@ export async function bookJob(job) {
   console.log(`[BOOKER] Using SpeedId=${chosen.speedId} QuoteId=${chosen.quoteId} $${chosen.amount}`);
 
   // Step 3: Book
-  const res = await apiClient().post('/api/Jobs', {
+  const res = await apiClient(tokenOverride).post('/api/Jobs', {
     quoteId: chosen.quoteId,
     speedId: chosen.speedId,
     dateTime: job.date || new Date().toISOString(),
@@ -117,4 +117,26 @@ function buildPackages(items) {
     height: item.height || 10,
     name: item.description || 'custom',
   }));
+}
+
+/**
+ * Get rates for a parsed job without booking — used for service selection UX
+ */
+export async function getRatesForJob(job, tokenOverride) {
+  const from = {
+    streetAddress: job.fromAddress,
+    suburb: job.fromSuburb || '',
+    city: job.fromCity || 'Auckland',
+    postCode: job.fromPostCode || '',
+    countryCode: 'NZ',
+  };
+  const to = {
+    streetAddress: job.toAddress,
+    suburb: job.toSuburb || '',
+    city: job.toCity || 'Auckland',
+    postCode: job.toPostCode || '',
+    countryCode: 'NZ',
+  };
+  const packages = buildPackages(job.jobItems);
+  return getRates(from, to, packages, tokenOverride);
 }

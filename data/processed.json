@@ -1,102 +1,37 @@
 {
-  "19b02c32bb0186db": {
-    "processedAt": "2026-03-06T03:37:31.013Z",
-    "result": "skipped-not-booking",
-    "senderEmail": "feedback@slack.com"
-  },
-  "19b02b79b6d953ba": {
-    "processedAt": "2026-03-06T03:37:31.722Z",
+  "19a01eba0ad8396b": {
+    "processedAt": "2026-03-06T04:19:12.142Z",
     "result": "skipped-automated",
-    "senderEmail": "chat-noreply@google.com"
+    "senderEmail": "noreply@urgent.co.nz"
   },
-  "19b003deb0605113": {
-    "processedAt": "2026-03-06T03:37:32.457Z",
+  "19a01eb9dfb35229": {
+    "processedAt": "2026-03-06T04:19:13.352Z",
     "result": "skipped-automated",
-    "senderEmail": "no-reply@fathom.video"
+    "senderEmail": "noreply@urgent.co.nz"
   },
-  "19affc47700f37fa": {
-    "processedAt": "2026-03-06T03:37:33.788Z",
-    "result": "skipped-not-booking",
-    "senderEmail": "email@e-mails.microsoft.com"
-  },
-  "19aff891c18adcd8": {
-    "processedAt": "2026-03-06T03:37:34.514Z",
+  "199ff9fe49e93682": {
+    "processedAt": "2026-03-06T04:19:14.127Z",
     "result": "skipped-automated",
     "senderEmail": "no-reply@fathom.video"
   },
-  "19aff1db6a2066eb": {
-    "processedAt": "2026-03-06T03:37:35.842Z",
+  "199ff37b21b4a4aa": {
+    "processedAt": "2026-03-06T04:19:15.447Z",
+    "result": "skipped-not-booking",
+    "senderEmail": "leo.comino@lion-agency.info"
+  },
+  "199fe27023615c73": {
+    "processedAt": "2026-03-06T04:19:16.202Z",
+    "result": "skipped-automated",
+    "senderEmail": "no-reply@fathom.video"
+  },
+  "199fe135b18e9116": {
+    "processedAt": "2026-03-06T04:19:16.969Z",
+    "result": "skipped-automated",
+    "senderEmail": "no-reply@fathom.video"
+  },
+  "199fdda4996d79af": {
+    "processedAt": "2026-03-06T04:19:18.315Z",
     "result": "skipped-not-booking",
     "senderEmail": "support@belton.co.nz"
-  },
-  "19afe433e6d2490d": {
-    "processedAt": "2026-03-06T03:37:36.565Z",
-    "result": "skipped-automated",
-    "senderEmail": "noreply@urgent.co.nz"
-  },
-  "19afe4331ae64897": {
-    "processedAt": "2026-03-06T03:37:37.308Z",
-    "result": "skipped-automated",
-    "senderEmail": "noreply@urgent.co.nz"
-  },
-  "19afa75bc5690dd9": {
-    "processedAt": "2026-03-06T03:37:38.057Z",
-    "result": "skipped-automated",
-    "senderEmail": "no-reply@fathom.video"
-  },
-  "19af9f71c779320d": {
-    "processedAt": "2026-03-06T03:37:39.317Z",
-    "result": "skipped-not-booking",
-    "senderEmail": "support@belton.co.nz"
-  },
-  "19af91ce20c51759": {
-    "processedAt": "2026-03-06T03:37:40.004Z",
-    "result": "skipped-automated",
-    "senderEmail": "noreply@urgent.co.nz"
-  },
-  "19af91cd423c0c7e": {
-    "processedAt": "2026-03-06T03:37:40.697Z",
-    "result": "skipped-automated",
-    "senderEmail": "noreply@urgent.co.nz"
-  },
-  "19af850a711ec22e": {
-    "processedAt": "2026-03-06T03:37:41.462Z",
-    "result": "skipped-automated",
-    "senderEmail": "SQLServerReports@urgent.co.nz"
-  },
-  "19af5286d6f1ad2d": {
-    "processedAt": "2026-03-06T03:37:42.234Z",
-    "result": "skipped-automated",
-    "senderEmail": "chat-noreply@google.com"
-  },
-  "19af3f6832f3cd7d": {
-    "processedAt": "2026-03-06T03:37:42.978Z",
-    "result": "skipped-automated",
-    "senderEmail": "noreply@urgent.co.nz"
-  },
-  "19af3f67c976ead0": {
-    "processedAt": "2026-03-06T03:37:43.662Z",
-    "result": "skipped-automated",
-    "senderEmail": "noreply@urgent.co.nz"
-  },
-  "19aeece89668e038": {
-    "processedAt": "2026-03-06T03:37:44.916Z",
-    "result": "skipped-automated",
-    "senderEmail": "notifications@stripe.com"
-  },
-  "19aee0347045983e": {
-    "processedAt": "2026-03-06T03:37:45.671Z",
-    "result": "skipped-automated",
-    "senderEmail": "SQLServerReports@urgent.co.nz"
-  },
-  "19aedf5fc4b60e9c": {
-    "processedAt": "2026-03-06T03:37:46.415Z",
-    "result": "skipped-automated",
-    "senderEmail": "notifications@link.com"
-  },
-  "19aec6ba770cbe79": {
-    "processedAt": "2026-03-06T03:37:47.722Z",
-    "result": "skipped-not-booking",
-    "senderEmail": "Robot@pbtech.co.nz"
   }
 }

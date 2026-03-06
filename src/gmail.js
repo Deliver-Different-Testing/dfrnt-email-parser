@@ -7,6 +7,7 @@ import config from '../config/default.js';
 import { isProcessed, markProcessed } from './store.js';
 import { parseEmail, isBookingRequest } from './parser.js';
 import { bookJob } from './booker.js';
+import { resolveAccount } from './accounts.js';
 
 function timestamp() {
   return new Date().toISOString();
@@ -111,7 +112,7 @@ async function applyLabel(gmail, messageId, labelId) {
   }
 }
 
-async function replyToEmail(gmail, message, threadId, replyText) {
+async function createDraft(gmail, message, threadId, replyText) {
   const headers = message.payload?.headers || [];
   const to = extractHeader(headers, 'from');
   const subject = extractHeader(headers, 'subject');
@@ -222,6 +223,14 @@ export async function pollGmail() {
       continue;
     }
 
+    // Resolve sender to DFRNT account
+    const account = resolveAccount(senderEmail);
+    if (!account) {
+      console.log(`[GMAIL] ${timestamp()} Unknown sender, no account match: ${senderEmail}`);
+      markProcessed(id, { result: 'skipped-unknown-sender', senderEmail });
+      continue;
+    }
+
     let parseResult;
     try {
       parseResult = await parseEmail(body, senderEmail, senderName);
@@ -243,13 +252,34 @@ export async function pollGmail() {
       const reply = parseResult.replyMessage ||
         `Hi,\n\nThanks for your booking request! We're missing a few details to complete your booking. Could you please provide: ${parseResult.missingRequired.join(', ')}?\n\nKind regards,\nUrgent Couriers`;
 
-      await replyToEmail(gmail, fullMessage, threadId, reply);
+      await createDraft(gmail, fullMessage, threadId, reply);
       await applyLabel(gmail, id, awaitingInfoLabelId);
       markProcessed(id, { result: 'awaiting-info', senderEmail, missing: parseResult.missingRequired });
 
     } else {
       // All fields present — book the job
-      const bookResult = await bookJob(parseResult.extracted, senderEmail);
+      // If speed not specified, get rates and ask customer to choose
+      if (!parseResult.speedId) {
+        console.log(`[GMAIL] ${timestamp()} No service specified — fetching rates for ${senderEmail}`);
+        try {
+          const { getRatesForJob } = await import('./booker.js');
+          const rates = await getRatesForJob(parseResult, account.token);
+          if (rates && rates.length > 0) {
+            const rateList = rates.slice(0, 5).map(r =>
+              `• **${r.name || 'Service ' + r.speedId}** — $${r.amount?.toFixed(2)}`
+            ).join('\n');
+            const serviceReply = `Hi ${senderName || 'there'},\n\nThank you for your booking request! We have the following services available for this route:\n\n${rateList}\n\nPlease reply with your preferred service and we'll get it booked straight away.\n\nThanks,\nUrgent Couriers`;
+            await createDraft(gmail, fullMessage, threadId, serviceReply);
+            console.log(`[GMAIL] ${timestamp()} Service options draft created for ${senderEmail}`);
+            markProcessed(id, { result: 'awaiting-service-choice', senderEmail });
+            continue;
+          }
+        } catch (rateErr) {
+          console.warn(`[GMAIL] ${timestamp()} Could not fetch rates:`, rateErr.message);
+        }
+      }
+
+      const bookResult = await bookJob(parseResult, account.token.extracted, senderEmail);
 
       if (bookResult.success) {
         const confirmation = `Hi ${senderName || 'there'},\n\nGreat news — your courier job has been booked!\n\n` +
@@ -260,7 +290,7 @@ export async function pollGmail() {
           `If you need to make any changes, please call us or reply to this email with your job reference.\n\n` +
           `Kind regards,\nUrgent Couriers`;
 
-        await replyToEmail(gmail, fullMessage, threadId, confirmation);
+        await createDraft(gmail, fullMessage, threadId, confirmation);
         markProcessed(id, { result: 'booked', senderEmail, jobId: bookResult.jobId });
         console.log(`[GMAIL] ${timestamp()} Job ${bookResult.jobId} booked for ${senderEmail}`);
 
@@ -268,7 +298,7 @@ export async function pollGmail() {
         // Booking failed
         const errorReply = `Hi ${senderName || 'there'},\n\nThank you for your booking request. Unfortunately we encountered a technical issue while processing it. Our team has been notified and will follow up with you shortly.\n\nWe apologise for the inconvenience.\n\nKind regards,\nUrgent Couriers`;
 
-        await replyToEmail(gmail, fullMessage, threadId, errorReply);
+        await createDraft(gmail, fullMessage, threadId, errorReply);
         await applyLabel(gmail, id, manualReviewLabelId);
         markProcessed(id, { result: 'booking-failed', senderEmail, error: bookResult.error });
         console.error(`[GMAIL] ${timestamp()} Booking failed for ${senderEmail}: ${bookResult.error}`);
