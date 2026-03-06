@@ -1,34 +1,14 @@
 import axios from 'axios';
 import config from '../config/default.js';
 
-let jwtToken = null;
-
 /**
- * Login to DFRNT API and get JWT token
- */
-async function authenticate() {
-  console.log('[BOOKER] Authenticating with DFRNT API...');
-  const res = await axios.post(`${config.bookingUrl}/api/Home/Login`, {
-    Username: config.bookingEmail,
-    Password: config.bookingPassword,
-  });
-
-  if (!res.data?.token) {
-    throw new Error('[BOOKER] No token returned from login');
-  }
-
-  jwtToken = res.data.token;
-  console.log('[BOOKER] Authenticated successfully');
-}
-
-/**
- * Returns axios instance with JWT auth header
+ * Returns axios instance with static Bearer token
  */
 function apiClient() {
   return axios.create({
     baseURL: config.bookingUrl,
     headers: {
-      Authorization: `Bearer ${jwtToken}`,
+      Authorization: `Bearer ${config.bookingApiToken}`,
       'Content-Type': 'application/json',
     },
   });
@@ -49,13 +29,6 @@ export async function bookJob(jobData) {
     console.log('[BOOKER] Job booked successfully:', res.data);
     return res.data;
   } catch (err) {
-    if (err.response?.status === 401) {
-      console.log('[BOOKER] Token expired, re-authenticating...');
-      jwtToken = null;
-      await authenticate();
-      const res = await apiClient().post('/api/Jobs', payload);
-      return res.data;
-    }
     console.error('[BOOKER] Booking failed:', err.response?.data || err.message);
     throw err;
   }

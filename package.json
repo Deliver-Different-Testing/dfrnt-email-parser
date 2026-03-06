@@ -17,5 +17,8 @@
     "isomorphic-fetch": "^3.0.0",
     "node-cron": "^3.0.3",
     "node-html-parser": "^6.1.13"
+  },
+  "devDependencies": {
+    "jose": "^6.2.0"
   }
 }

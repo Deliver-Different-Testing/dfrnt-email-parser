@@ -23,11 +23,8 @@ const provider = optional('EMAIL_PROVIDER', 'gmail');
 const config = {
   provider, // "gmail" | "o365" | "both"
 
-  booking: {
-    url: optional('BOOKING_URL', 'https://booking.urgent.co.nz'),
-    email: optional('BOOKING_EMAIL', ''),
-    password: optional('BOOKING_PASSWORD', ''),
-  },
+  bookingUrl: optional('BOOKING_URL', 'https://api.urgent.staging.deliverdifferent.com'),
+  bookingApiToken: optional('BOOKING_API_TOKEN'),
 
   gmail: {
     clientId: optional('GMAIL_CLIENT_ID'),
