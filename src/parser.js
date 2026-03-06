@@ -55,3 +55,24 @@ export async function parseEmail(emailBody, senderEmail, senderName) {
     throw new Error('Failed to parse email content');
   }
 }
+
+/**
+ * Quick pre-screen: is this email a courier booking request?
+ * Returns true/false — fast, cheap, single sentence response.
+ */
+export async function isBookingRequest(subject, body) {
+  const response = await client.messages.create({
+    model: 'claude-haiku-4-5',
+    max_tokens: 10,
+    messages: [{
+      role: 'user',
+      content: `Is this email a request to book a courier pickup or delivery job? Answer only "yes" or "no".
+
+Subject: ${subject}
+Body (first 300 chars): ${body.substring(0, 300)}`,
+    }],
+  });
+
+  const answer = response.content[0].text.trim().toLowerCase();
+  return answer.startsWith('yes');
+}

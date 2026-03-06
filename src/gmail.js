@@ -5,7 +5,7 @@
 import { google } from 'googleapis';
 import config from '../config/default.js';
 import { isProcessed, markProcessed } from './store.js';
-import { parseEmail } from './parser.js';
+import { parseEmail, isBookingRequest } from './parser.js';
 import { bookJob } from './booker.js';
 
 function timestamp() {
@@ -206,30 +206,19 @@ export async function pollGmail() {
     await markAsRead(gmail, id);
 
 
-    // Skip automated/system senders
-    const skipSenders = ['no-reply@', 'noreply@', 'notifications@', 'mailer@', 'news@', 'newsletter@', 'do-not-reply@', 'donotreply@', 'support@stripe', 'insideapple', 'mailer-daemon'];
+    // Hard skip obvious automated senders — no need to waste Claude on these
+    const skipSenders = ['no-reply@', 'noreply@', 'notifications@', 'mailer@', 'news@', 'newsletter@', 'do-not-reply@', 'donotreply@', 'mailer-daemon', 'sqlserverreports@'];
     if (skipSenders.some(s => senderEmail.toLowerCase().includes(s))) {
       console.log(`[GMAIL] ${timestamp()} Skipping automated sender: ${senderEmail}`);
       markProcessed(id, { result: 'skipped-automated', senderEmail });
       continue;
     }
 
-    // Skip if subject looks like a reply to our own messages (Re: Missing info / Re: Booking confirmed)
-    const skipSubjects = ['automatic reply', 'auto-reply', 'out of office', 'out of the office', 're: we need a few more details', 're: booking confirmed', 're: booking request received', 'payout', 'invoice', 'receipt', 'newsletter', 'unsubscribe'];
-    if (skipSubjects.some(s => subject.toLowerCase().includes(s))) {
-      console.log(`[GMAIL] ${timestamp()} Skipping non-booking subject: "${subject}"`);
-      markProcessed(id, { result: 'skipped-non-booking', senderEmail });
-      continue;
-    }
-
-    // Check body for booking keywords (use first 500 chars to avoid thread context)
-    const bodyPreview = body.substring(0, 500).toLowerCase();
-    const bookingKeywords = ['pickup', 'pick up', 'deliver', 'delivery', 'book', 'booking', 'courier', 'parcel', 'package', 'collect', 'freight', 'please send'];
-    const subjectKeywords = ['book', 'pickup', 'delivery', 'courier', 'parcel', 'job', 'freight', 'collect'];
-    const isBookingEmail = subjectKeywords.some(kw => subject.toLowerCase().includes(kw)) || bookingKeywords.some(kw => bodyPreview.includes(kw));
-    if (!isBookingEmail) {
-      console.log(`[GMAIL] ${timestamp()} Skipping non-booking email: "${subject}"`);
-      markProcessed(id, { result: 'skipped-non-booking', senderEmail });
+    // AI pre-screen: is this actually a booking request?
+    const booking = await isBookingRequest(subject, body);
+    if (!booking) {
+      console.log(`[GMAIL] ${timestamp()} Not a booking request, skipping: "${subject}"`);
+      markProcessed(id, { result: 'skipped-not-booking', senderEmail });
       continue;
     }
 
