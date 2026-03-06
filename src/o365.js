@@ -7,7 +7,7 @@ import { Client } from '@microsoft/microsoft-graph-client';
 import config from '../config/default.js';
 import { isProcessed, markProcessed } from './store.js';
 import { parseEmail } from './parser.js';
-import { createJob } from './booker.js';
+import { bookJob } from './booker.js';
 
 function timestamp() {
   return new Date().toISOString();
@@ -164,7 +164,7 @@ export async function pollO365() {
       markProcessed(id, { result: 'awaiting-info', senderEmail, missing: parseResult.missingRequired });
 
     } else {
-      const bookResult = await createJob(parseResult.extracted, senderEmail);
+      const bookResult = await bookJob(parseResult.extracted, senderEmail);
 
       if (bookResult.success) {
         const confirmation = `Hi ${senderName || 'there'},\n\nYour courier job has been booked!\n\n` +

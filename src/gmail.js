@@ -6,7 +6,7 @@ import { google } from 'googleapis';
 import config from '../config/default.js';
 import { isProcessed, markProcessed } from './store.js';
 import { parseEmail } from './parser.js';
-import { createJob } from './booker.js';
+import { bookJob } from './booker.js';
 
 function timestamp() {
   return new Date().toISOString();
@@ -205,9 +205,37 @@ export async function pollGmail() {
     // Mark as read immediately to avoid reprocessing on crash
     await markAsRead(gmail, id);
 
+
+    // Skip automated/system senders
+    const skipSenders = ['no-reply@', 'noreply@', 'notifications@', 'mailer@', 'news@', 'newsletter@', 'do-not-reply@', 'donotreply@', 'support@stripe', 'insideapple', 'mailer-daemon'];
+    if (skipSenders.some(s => senderEmail.toLowerCase().includes(s))) {
+      console.log(`[GMAIL] ${timestamp()} Skipping automated sender: ${senderEmail}`);
+      markProcessed(id, { result: 'skipped-automated', senderEmail });
+      continue;
+    }
+
+    // Skip if subject looks like a reply to our own messages (Re: Missing info / Re: Booking confirmed)
+    const skipSubjects = ['automatic reply', 'auto-reply', 'out of office', 'out of the office', 're: we need a few more details', 're: booking confirmed', 're: booking request received', 'payout', 'invoice', 'receipt', 'newsletter', 'unsubscribe'];
+    if (skipSubjects.some(s => subject.toLowerCase().includes(s))) {
+      console.log(`[GMAIL] ${timestamp()} Skipping non-booking subject: "${subject}"`);
+      markProcessed(id, { result: 'skipped-non-booking', senderEmail });
+      continue;
+    }
+
+    // Check body for booking keywords (use first 500 chars to avoid thread context)
+    const bodyPreview = body.substring(0, 500).toLowerCase();
+    const bookingKeywords = ['pickup', 'pick up', 'deliver', 'delivery', 'book', 'booking', 'courier', 'parcel', 'package', 'collect', 'freight', 'please send'];
+    const subjectKeywords = ['book', 'pickup', 'delivery', 'courier', 'parcel', 'job', 'freight', 'collect'];
+    const isBookingEmail = subjectKeywords.some(kw => subject.toLowerCase().includes(kw)) || bookingKeywords.some(kw => bodyPreview.includes(kw));
+    if (!isBookingEmail) {
+      console.log(`[GMAIL] ${timestamp()} Skipping non-booking email: "${subject}"`);
+      markProcessed(id, { result: 'skipped-non-booking', senderEmail });
+      continue;
+    }
+
     let parseResult;
     try {
-      parseResult = await parseEmail({ subject, body, senderEmail, senderName });
+      parseResult = await parseEmail(body, senderEmail, senderName);
     } catch (err) {
       console.error(`[GMAIL] ${timestamp()} Parse error for ${id}:`, err.message);
       markProcessed(id, { result: 'parse-error', senderEmail });
@@ -232,7 +260,7 @@ export async function pollGmail() {
 
     } else {
       // All fields present — book the job
-      const bookResult = await createJob(parseResult.extracted, senderEmail);
+      const bookResult = await bookJob(parseResult.extracted, senderEmail);
 
       if (bookResult.success) {
         const confirmation = `Hi ${senderName || 'there'},\n\nGreat news — your courier job has been booked!\n\n` +

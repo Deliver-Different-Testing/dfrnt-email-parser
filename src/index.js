@@ -44,7 +44,7 @@ async function main() {
   console.log(`[MAIN] ${timestamp()} Starting Urgent Couriers Email Parser`);
   console.log(`[MAIN] ${timestamp()} Provider: ${config.provider}`);
   console.log(`[MAIN] ${timestamp()} Poll interval: ${config.pollIntervalMinutes} minute(s)`);
-  console.log(`[MAIN] ${timestamp()} Booking URL: ${config.booking.url}`);
+  console.log(`[MAIN] ${timestamp()} Booking URL: ${config.bookingUrl}`);
 
   // Load persisted processed IDs
   loadStore();
