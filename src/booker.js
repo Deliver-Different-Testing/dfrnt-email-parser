@@ -1,9 +1,6 @@
 import axios from 'axios';
 import config from '../config/default.js';
 
-/**
- * Returns axios instance with static Bearer token
- */
 function apiClient() {
   return axios.create({
     baseURL: config.bookingUrl,
@@ -15,90 +12,109 @@ function apiClient() {
 }
 
 /**
- * Book a job via DFRNT API POST /api/Jobs
- * @param {object} jobData - parsed job fields from parser.js
- * @returns {object} - API response with job number
+ * Get rates for a job, returns array of available rates
  */
-export async function bookJob(jobData) {
-  if (!jwtToken) await authenticate();
-
-  const payload = buildPayload(jobData);
-
-  try {
-    const res = await apiClient().post('/api/Jobs', payload);
-    console.log('[BOOKER] Job booked successfully:', res.data);
-    return res.data;
-  } catch (err) {
-    console.error('[BOOKER] Booking failed:', err.response?.data || err.message);
-    throw err;
-  }
+async function getRates(from, to, packages) {
+  console.log('[BOOKER] Getting rates...');
+  const res = await apiClient().post('/api/Rates', { from, to, packages });
+  const rates = res.data?.rates || res.data || [];
+  console.log(`[BOOKER] ${rates.length} rates available`);
+  return rates;
 }
 
 /**
- * Map parsed job fields to DFRNT BookPickup payload
+ * Pick the best rate matching the requested speedId, or cheapest if not found
  */
-function buildPayload(job) {
-  return {
-    SpeedId: job.speedId || config.defaultSpeedId,
-    DateTime: job.date || new Date().toISOString(),
-    JobType: 0, // Pickup = default
-    Pickup: {
-      Name: job.fromContactName || job.bookedBy || 'Email Booking',
-      ContactPerson: job.fromContactName || job.bookedBy || 'Email Booking',
-      PhoneNumber: job.fromPhoneNumber || '',
-      Email: job.senderEmail || '',
-      Notes: job.notes || '',
-      From: {
-        StreetAddress: job.fromAddress,
-        Suburb: job.fromSuburb || '',
-        City: job.fromCity || '',
-        PostCode: job.fromPostCode || '',
-        CountryCode: 'NZ',
-      },
-    },
-    Delivery: {
-      Name: job.toContactName || 'Recipient',
-      ContactPerson: job.toContactName || '',
-      PhoneNumber: job.toPhoneNumber || '',
-      Email: job.toEmail || '',
-      Notes: job.deliveryNotes || '',
-      To: {
-        StreetAddress: job.toAddress,
-        Suburb: job.toSuburb || '',
-        City: job.toCity || '',
-        PostCode: job.toPostCode || '',
-        CountryCode: 'NZ',
-      },
-    },
-    Packages: buildPackages(job.jobItems),
-    ClientReferenceA: job.clientRefA || '',
-    ClientNotes: `Booked via email from: ${job.senderEmail || 'unknown'}`,
-    JobNotificationType: 'EMAIL',
-    JobNotificationEmail: job.senderEmail || '',
-    IsSignatureRequired: true,
-    IsSaturdayDelivery: false,
-    IsDangerousGoods: false,
-    SourceId: 5, // Email parser source
+function pickRate(rates, requestedSpeedId) {
+  const match = rates.find(r => r.speedId === requestedSpeedId);
+  if (match) return match;
+  // Fall back: sort by amount, pick cheapest
+  return rates.sort((a, b) => a.amount - b.amount)[0];
+}
+
+/**
+ * Map speed keyword to SpeedId
+ */
+export function resolveSpeedId(speedKeyword) {
+  const map = config.serviceMap || {};
+  const key = (speedKeyword || '').toLowerCase();
+  for (const [k, v] of Object.entries(map)) {
+    if (key.includes(k)) return v;
+  }
+  return null; // let getRates decide
+}
+
+/**
+ * Full flow: get rates → pick rate → book job
+ */
+export async function bookJob(job) {
+  const from = {
+    streetAddress: job.fromAddress,
+    suburb: job.fromSuburb || '',
+    city: job.fromCity || job.fromSuburb || 'Auckland',
+    postCode: job.fromPostCode || '',
+    countryCode: 'NZ',
   };
+
+  const to = {
+    streetAddress: job.toAddress,
+    suburb: job.toSuburb || '',
+    city: job.toCity || job.toSuburb || 'Auckland',
+    postCode: job.toPostCode || '',
+    countryCode: 'NZ',
+  };
+
+  const packages = buildPackages(job.jobItems);
+
+  // Step 1: Get rates
+  const rates = await getRates(from, to, packages);
+  if (!rates.length) throw new Error('No rates available for this route');
+
+  // Step 2: Pick rate
+  const chosen = pickRate(rates, job.speedId);
+  console.log(`[BOOKER] Using SpeedId=${chosen.speedId} QuoteId=${chosen.quoteId} $${chosen.amount}`);
+
+  // Step 3: Book
+  const res = await apiClient().post('/api/Jobs', {
+    quoteId: chosen.quoteId,
+    speedId: chosen.speedId,
+    dateTime: job.date || new Date().toISOString(),
+    pickup: {
+      name: job.fromContactName || job.bookedBy || 'Email Booking',
+      contactPerson: job.fromContactName || job.bookedBy || 'Email Booking',
+      phoneNumber: job.fromPhoneNumber || '',
+      from,
+      notes: job.notes || '',
+    },
+    delivery: {
+      name: job.toContactName || 'Recipient',
+      contactPerson: job.toContactName || '',
+      phoneNumber: job.toPhoneNumber || '',
+      to,
+      notes: job.deliveryNotes || '',
+    },
+    packages,
+    clientReferenceA: job.clientRefA || '',
+    clientNotes: `Booked via email from: ${job.senderEmail || 'unknown'}`,
+    jobNotificationType: 'EMAIL',
+    jobNotificationEmail: job.senderEmail || '',
+    isSignatureRequired: true,
+  });
+
+  console.log('[BOOKER] Job booked! ID:', res.data?.jobID);
+  return res.data;
 }
 
 function buildPackages(items) {
-  if (!items || items.length === 0) {
-    return [{
-      Quantity: 1,
-      Weight: 0,
-      Length: 0,
-      Height: 0,
-      Width: 0,
-    }];
+  if (!items || !items.length) {
+    return [{ units: 1, kg: 1, length: 20, width: 15, height: 10, name: 'custom' }];
   }
-
   return items.map(item => ({
-    Quantity: item.items || item.quantity || 1,
-    Weight: item.weight || 0,
-    Length: item.length || 0,
-    Height: item.height || 0,
-    Width: item.depth || item.width || 0,
-    Description: item.notes || '',
+    units: item.quantity || item.units || 1,
+    kg: item.weight || item.kg || 1,
+    length: item.length || 20,
+    width: item.width || 15,
+    height: item.height || 10,
+    name: item.description || 'custom',
   }));
 }
