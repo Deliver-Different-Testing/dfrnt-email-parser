@@ -1,0 +1,21 @@
+{
+  "name": "email-parser",
+  "version": "1.0.0",
+  "description": "Email booking parser for Urgent Couriers",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.36.3",
+    "@microsoft/microsoft-graph-client": "^3.0.7",
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "googleapis": "^144.0.0",
+    "isomorphic-fetch": "^3.0.0",
+    "node-cron": "^3.0.3",
+    "node-html-parser": "^6.1.13"
+  }
+}
