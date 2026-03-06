@@ -1,87 +1,52 @@
 {
-  "19cb6605b8a9602e": {
-    "processedAt": "2026-03-06T02:55:22.119Z",
-    "result": "skipped-non-booking",
-    "senderEmail": "info@raw-marketing.com.au"
-  },
-  "19cb5c85c3e2e6d0": {
-    "processedAt": "2026-03-06T02:55:22.930Z",
+  "19c252b69b0870b8": {
+    "processedAt": "2026-03-06T03:12:24.594Z",
     "result": "skipped-automated",
     "senderEmail": "no-reply@fathom.video"
   },
-  "19cb5724ba66a8b8": {
-    "processedAt": "2026-03-06T02:55:23.654Z",
-    "result": "skipped-automated",
-    "senderEmail": "sc-noreply@google.com"
-  },
-  "19cb558fdc0d1096": {
-    "processedAt": "2026-03-06T02:55:24.397Z",
-    "result": "skipped-automated",
-    "senderEmail": "no-reply@fathom.video"
-  },
-  "19cb547942454f30": {
-    "processedAt": "2026-03-06T02:55:25.145Z",
+  "19c1d47bbd6afc18": {
+    "processedAt": "2026-03-06T03:12:25.647Z",
     "result": "skipped-non-booking",
-    "senderEmail": "naresh@urgent.co.nz"
+    "senderEmail": "licensing@urgent.co.nz"
   },
-  "19cb5273c160b0ba": {
-    "processedAt": "2026-03-06T02:55:25.943Z",
-    "result": "skipped-non-booking",
-    "senderEmail": "support@belton.co.nz"
-  },
-  "19cb4dd13bba42ac": {
-    "processedAt": "2026-03-06T02:55:26.702Z",
-    "result": "skipped-non-booking",
-    "senderEmail": "no-reply-powerbi@microsoft.com"
-  },
-  "19cb443b9b36eba0": {
-    "processedAt": "2026-03-06T02:55:27.409Z",
+  "19c1d47b06f6c1ce": {
+    "processedAt": "2026-03-06T03:12:26.478Z",
     "result": "skipped-automated",
-    "senderEmail": "notifications@mail.postman.com"
+    "senderEmail": "microsoft-noreply@microsoft.com"
   },
-  "19cb1f9b279a4f9f": {
-    "processedAt": "2026-03-06T02:55:32.362Z",
-    "result": "awaiting-info",
-    "senderEmail": "vincent@urgent.co.nz"
-  },
-  "19cb1e3dfb25f89b": {
-    "processedAt": "2026-03-06T02:55:33.076Z",
-    "result": "skipped-automated",
-    "senderEmail": "no-reply@fathom.video"
-  },
-  "19cb1dc0da58c7eb": {
-    "processedAt": "2026-03-06T02:55:33.812Z",
+  "19c1d096841828c1": {
+    "processedAt": "2026-03-06T03:12:27.219Z",
     "result": "skipped-automated",
     "senderEmail": "notifications@stripe.com"
   },
-  "19cb1bdf6cdfb666": {
-    "processedAt": "2026-03-06T02:55:34.594Z",
-    "result": "skipped-non-booking",
-    "senderEmail": "kerran@urgent.co.nz"
+  "19c1cdb5dd2ac7a7": {
+    "processedAt": "2026-03-06T03:12:28.019Z",
+    "result": "skipped-automated",
+    "senderEmail": "microsoft-noreply@microsoft.com"
   },
-  "19cb16f0dcf68f33": {
-    "processedAt": "2026-03-06T02:55:40.324Z",
+  "19c18b46f6d04fb2": {
+    "processedAt": "2026-03-06T03:12:28.819Z",
+    "result": "skipped-non-booking",
+    "senderEmail": "SQLServerReports@urgent.co.nz"
+  },
+  "19c187bd76050556": {
+    "processedAt": "2026-03-06T03:12:34.150Z",
     "result": "awaiting-info",
-    "senderEmail": "vincent@urgent.co.nz"
+    "senderEmail": "deane@urgent.co.nz"
   },
-  "19cb149912fcaa41": {
-    "processedAt": "2026-03-06T02:55:41.051Z",
-    "result": "skipped-non-booking",
-    "senderEmail": "naresh@urgent.co.nz"
+  "19c0c04766800f0a": {
+    "processedAt": "2026-03-06T03:12:35.078Z",
+    "result": "skipped-automated",
+    "senderEmail": "News@insideapple.apple.com"
   },
-  "19cb12b1d352f221": {
-    "processedAt": "2026-03-06T02:55:41.846Z",
+  "19c0b59429a41186": {
+    "processedAt": "2026-03-06T03:12:36.002Z",
     "result": "skipped-automated",
     "senderEmail": "no-reply@fathom.video"
   },
-  "19cb127a016f7934": {
-    "processedAt": "2026-03-06T02:55:42.552Z",
-    "result": "skipped-non-booking",
-    "senderEmail": "digital.com@chamber.co.nz"
-  },
-  "19cb11436cec10a0": {
-    "processedAt": "2026-03-06T02:55:48.967Z",
-    "result": "awaiting-info",
-    "senderEmail": "messaging-service@post.xero.com"
+  "19c070feb5526586": {
+    "processedAt": "2026-03-06T03:12:36.699Z",
+    "result": "skipped-automated",
+    "senderEmail": "noreply@send.xero.com"
   }
 }

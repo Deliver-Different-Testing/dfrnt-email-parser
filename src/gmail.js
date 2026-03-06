@@ -133,11 +133,11 @@ async function replyToEmail(gmail, message, threadId, replyText) {
   const encoded = Buffer.from(rawHeaders).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
   try {
-    await gmail.users.messages.send({
+    await gmail.users.drafts.create({
       userId: 'me',
-      requestBody: { raw: encoded, threadId },
+      requestBody: { message: { raw: encoded, threadId } },
     });
-    console.log(`[GMAIL] ${timestamp()} Reply sent to ${to}`);
+    console.log(`[GMAIL] ${timestamp()} Draft created for ${to}`);
   } catch (err) {
     console.error(`[GMAIL] ${timestamp()} Failed to send reply:`, err.message);
   }
