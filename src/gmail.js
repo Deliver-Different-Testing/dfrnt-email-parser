@@ -7,6 +7,7 @@ import config from '../config/default.js';
 import { isProcessed, markProcessed } from './store.js';
 import { parseEmail, isBookingRequest } from './parser.js';
 import { bookJob } from './booker.js';
+import { logEmail, updateEmailStatus, calcConfidence } from './logger.js';
 import { resolveAccount } from './accounts.js';
 
 function timestamp() {
@@ -207,11 +208,15 @@ export async function pollGmail() {
     await markAsRead(gmail, id);
 
 
+    // Log email as soon as we have metadata
+    logEmail({ messageId: id, senderEmail, senderName, subject, body, status: 'skipped' });
+
     // Hard skip obvious automated senders — no need to waste Claude on these
     const skipSenders = ['no-reply@', 'noreply@', 'notifications@', 'mailer@', 'news@', 'newsletter@', 'do-not-reply@', 'donotreply@', 'mailer-daemon', 'sqlserverreports@'];
     if (skipSenders.some(s => senderEmail.toLowerCase().includes(s))) {
       console.log(`[GMAIL] ${timestamp()} Skipping automated sender: ${senderEmail}`);
       markProcessed(id, { result: 'skipped-automated', senderEmail });
+      updateEmailStatus(id, 'skipped', { flagReason: 'Automated sender' });
       continue;
     }
 
@@ -220,6 +225,7 @@ export async function pollGmail() {
     if (!booking) {
       console.log(`[GMAIL] ${timestamp()} Not a booking request, skipping: "${subject}"`);
       markProcessed(id, { result: 'skipped-not-booking', senderEmail });
+      updateEmailStatus(id, 'skipped', { flagReason: 'Not a booking request' });
       continue;
     }
 
@@ -228,6 +234,7 @@ export async function pollGmail() {
     if (!account) {
       console.log(`[GMAIL] ${timestamp()} Unknown sender, no account match: ${senderEmail}`);
       markProcessed(id, { result: 'skipped-unknown-sender', senderEmail });
+      updateEmailStatus(id, 'flagged', { flagReason: 'Unknown sender — no matching account' });
       continue;
     }
 
@@ -237,13 +244,24 @@ export async function pollGmail() {
     } catch (err) {
       console.error(`[GMAIL] ${timestamp()} Parse error for ${id}:`, err.message);
       markProcessed(id, { result: 'parse-error', senderEmail });
+      updateEmailStatus(id, 'error', { flagReason: `Parse error: ${err.message}` });
       continue;
     }
+
+    const confidence = calcConfidence(parseResult);
 
     if (parseResult.gibberish || parseResult.error) {
       console.log(`[GMAIL] ${timestamp()} Skipping gibberish/unparseable email from ${senderEmail}`);
       markProcessed(id, { result: 'skipped', senderEmail });
+      updateEmailStatus(id, 'skipped', { confidence, parsedData: parseResult, flagReason: 'Gibberish or unparseable' });
       continue;
+    }
+
+    // Auto-flag low confidence
+    if (confidence < 0.6) {
+      updateEmailStatus(id, 'flagged', { confidence, parsedData: parseResult, flagReason: `Low confidence (${Math.round(confidence * 100)}%)` });
+    } else {
+      updateEmailStatus(id, 'skipped', { confidence, parsedData: parseResult });
     }
 
     if (!parseResult.canBook) {
@@ -255,6 +273,7 @@ export async function pollGmail() {
       await createDraft(gmail, fullMessage, threadId, reply);
       await applyLabel(gmail, id, awaitingInfoLabelId);
       markProcessed(id, { result: 'awaiting-info', senderEmail, missing: parseResult.missingRequired });
+      updateEmailStatus(id, 'awaiting-info', { draftReply: reply });
 
     } else {
       // All fields present — book the job
@@ -272,6 +291,7 @@ export async function pollGmail() {
             await createDraft(gmail, fullMessage, threadId, serviceReply);
             console.log(`[GMAIL] ${timestamp()} Service options draft created for ${senderEmail}`);
             markProcessed(id, { result: 'awaiting-service-choice', senderEmail });
+            updateEmailStatus(id, 'awaiting-info', { draftReply: serviceReply });
             continue;
           }
         } catch (rateErr) {
@@ -292,6 +312,7 @@ export async function pollGmail() {
 
         await createDraft(gmail, fullMessage, threadId, confirmation);
         markProcessed(id, { result: 'booked', senderEmail, jobId: bookResult.jobId });
+        updateEmailStatus(id, 'booked', { jobId: String(bookResult.jobId || ''), jobNumber: String(bookResult.jobNumber || bookResult.jobId || ''), draftReply: confirmation, confidence });
         console.log(`[GMAIL] ${timestamp()} Job ${bookResult.jobId} booked for ${senderEmail}`);
 
       } else {
@@ -301,6 +322,7 @@ export async function pollGmail() {
         await createDraft(gmail, fullMessage, threadId, errorReply);
         await applyLabel(gmail, id, manualReviewLabelId);
         markProcessed(id, { result: 'booking-failed', senderEmail, error: bookResult.error });
+        updateEmailStatus(id, 'error', { flagReason: `Booking failed: ${bookResult.error}`, draftReply: errorReply });
         console.error(`[GMAIL] ${timestamp()} Booking failed for ${senderEmail}: ${bookResult.error}`);
       }
     }
