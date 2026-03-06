@@ -1,178 +1,131 @@
-/**
- * booker.js - Urgent Couriers Booking API client
- * Handles CSRF-based login and job creation
- */
-
 import axios from 'axios';
-import { parse as parseHtml } from 'node-html-parser';
 import config from '../config/default.js';
 
-function timestamp() {
-  return new Date().toISOString();
-}
+let jwtToken = null;
 
-// In-memory cookie/session state
-let sessionCookie = null;
-let sessionExpiry = null;
-
-const http = axios.create({
-  baseURL: config.booking.url,
-  timeout: 15000,
-  maxRedirects: 5,
-  withCredentials: true,
-});
-
-// Intercept to attach session cookie
-http.interceptors.request.use((req) => {
-  if (sessionCookie) {
-    req.headers['Cookie'] = sessionCookie;
-  }
-  return req;
-});
-
-async function extractCsrfToken(html) {
-  const root = parseHtml(html);
-  const token = root.querySelector('input[name="__RequestVerificationToken"]')?.getAttribute('value');
-  if (!token) throw new Error('CSRF token not found in login page');
-  return token;
-}
-
-function extractSetCookie(response) {
-  const setCookieHeaders = response.headers['set-cookie'];
-  if (!setCookieHeaders) return null;
-  // Join all cookies into a single Cookie header string
-  return setCookieHeaders
-    .map(c => c.split(';')[0])
-    .join('; ');
-}
-
-async function login() {
-  console.log(`[BOOKER] ${timestamp()} Logging in to booking API...`);
-
-  if (!config.booking.email || !config.booking.password) {
-    throw new Error('BOOKING_EMAIL and BOOKING_PASSWORD must be set');
-  }
-
-  // Step 1: GET login page to extract CSRF token
-  let loginPageResp;
-  try {
-    loginPageResp = await http.get('/Account/Login');
-  } catch (err) {
-    throw new Error(`Failed to fetch login page: ${err.message}`);
-  }
-
-  const csrfToken = await extractCsrfToken(loginPageResp.data);
-
-  // Capture any initial cookies (antiforgery etc)
-  const initialCookies = extractSetCookie(loginPageResp);
-
-  // Step 2: POST credentials
-  const formData = new URLSearchParams({
-    Email: config.booking.email,
-    Password: config.booking.password,
-    __RequestVerificationToken: csrfToken,
+/**
+ * Login to DFRNT API and get JWT token
+ */
+async function authenticate() {
+  console.log('[BOOKER] Authenticating with DFRNT API...');
+  const res = await axios.post(`${config.bookingUrl}/api/Home/Login`, {
+    Username: config.bookingEmail,
+    Password: config.bookingPassword,
   });
 
-  let loginResp;
-  try {
-    loginResp = await http.post('/Account/Login', formData.toString(), {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Cookie': initialCookies || '',
-      },
-      maxRedirects: 0,
-      validateStatus: (s) => s < 400 || s === 302,
-    });
-  } catch (err) {
-    if (err.response?.status === 302) {
-      loginResp = err.response;
-    } else {
-      throw new Error(`Login POST failed: ${err.message}`);
-    }
+  if (!res.data?.token) {
+    throw new Error('[BOOKER] No token returned from login');
   }
 
-  const newCookies = extractSetCookie(loginResp);
-  if (!newCookies) {
-    throw new Error('No session cookie received after login');
-  }
-
-  // Merge initial + login cookies
-  const allCookies = [initialCookies, newCookies].filter(Boolean).join('; ');
-  sessionCookie = allCookies;
-  sessionExpiry = Date.now() + 55 * 60 * 1000; // re-auth after 55 min
-
-  console.log(`[BOOKER] ${timestamp()} Login successful`);
+  jwtToken = res.data.token;
+  console.log('[BOOKER] Authenticated successfully');
 }
 
-async function ensureAuth() {
-  if (!sessionCookie || Date.now() > (sessionExpiry || 0)) {
-    await login();
-  }
+/**
+ * Returns axios instance with JWT auth header
+ */
+function apiClient() {
+  return axios.create({
+    baseURL: config.bookingUrl,
+    headers: {
+      Authorization: `Bearer ${jwtToken}`,
+      'Content-Type': 'application/json',
+    },
+  });
 }
 
-export async function createJob(extracted, senderEmail) {
-  await ensureAuth();
+/**
+ * Book a job via DFRNT API POST /api/Jobs
+ * @param {object} jobData - parsed job fields from parser.js
+ * @returns {object} - API response with job number
+ */
+export async function bookJob(jobData) {
+  if (!jwtToken) await authenticate();
 
-  const payload = {
-    Date: extracted.Date,
-    FromAddress: extracted.FromAddress,
-    FromAddressSuburbId: null,
-    FromContactName: extracted.FromContactName || null,
-    FromPhoneNumber: extracted.FromPhoneNumber || null,
-    ToAddress: extracted.ToAddress,
-    ToAddressSuburbId: null,
-    ToContactName: extracted.ToContactName || null,
-    ToPhoneNumber: extracted.ToPhoneNumber || null,
-    SpeedId: extracted.SpeedId,
-    BookedBy: extracted.BookedBy || 'Email Parser',
-    ClientRefA: extracted.ClientRefA || null,
-    JobItems: extracted.JobItems.map(item => ({
-      Items: item.Items || 1,
-      Weight: item.Weight || 0,
-      Length: item.Length || 0,
-      Height: item.Height || 0,
-      Depth: item.Depth || 0,
-    })),
-    IsBulk: false,
-    Recurring: false,
-    Notes: [
-      extracted.Notes || '',
-      `Booked via email from: ${senderEmail}`,
-    ].filter(Boolean).join('\n').trim(),
-  };
-
-  console.log(`[BOOKER] ${timestamp()} Creating job: ${payload.FromAddress} → ${payload.ToAddress}`);
+  const payload = buildPayload(jobData);
 
   try {
-    const resp = await http.post('/API/Job', payload, {
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    const jobData = resp.data;
-    const jobId = jobData?.JobId || jobData?.Id || jobData?.id || jobData;
-    console.log(`[BOOKER] ${timestamp()} Job created successfully: ${jobId}`);
-    return { success: true, jobId, raw: jobData };
-
+    const res = await apiClient().post('/api/Jobs', payload);
+    console.log('[BOOKER] Job booked successfully:', res.data);
+    return res.data;
   } catch (err) {
     if (err.response?.status === 401) {
-      // Re-auth and retry once
-      console.log(`[BOOKER] ${timestamp()} Got 401, re-authenticating...`);
-      sessionCookie = null;
-      await login();
-
-      const retryResp = await http.post('/API/Job', payload, {
-        headers: { 'Content-Type': 'application/json' },
-      });
-      const jobData = retryResp.data;
-      const jobId = jobData?.JobId || jobData?.Id || jobData?.id || jobData;
-      console.log(`[BOOKER] ${timestamp()} Job created after re-auth: ${jobId}`);
-      return { success: true, jobId, raw: jobData };
+      console.log('[BOOKER] Token expired, re-authenticating...');
+      jwtToken = null;
+      await authenticate();
+      const res = await apiClient().post('/api/Jobs', payload);
+      return res.data;
     }
-
-    const errMsg = err.response?.data
-      ? JSON.stringify(err.response.data).slice(0, 300)
-      : err.message;
-    console.error(`[BOOKER] ${timestamp()} Job creation failed: ${errMsg}`);
-    return { success: false, error: errMsg };
+    console.error('[BOOKER] Booking failed:', err.response?.data || err.message);
+    throw err;
   }
+}
+
+/**
+ * Map parsed job fields to DFRNT BookPickup payload
+ */
+function buildPayload(job) {
+  return {
+    SpeedId: job.speedId || config.defaultSpeedId,
+    DateTime: job.date || new Date().toISOString(),
+    JobType: 0, // Pickup = default
+    Pickup: {
+      Name: job.fromContactName || job.bookedBy || 'Email Booking',
+      ContactPerson: job.fromContactName || job.bookedBy || 'Email Booking',
+      PhoneNumber: job.fromPhoneNumber || '',
+      Email: job.senderEmail || '',
+      Notes: job.notes || '',
+      From: {
+        StreetAddress: job.fromAddress,
+        Suburb: job.fromSuburb || '',
+        City: job.fromCity || '',
+        PostCode: job.fromPostCode || '',
+        CountryCode: 'NZ',
+      },
+    },
+    Delivery: {
+      Name: job.toContactName || 'Recipient',
+      ContactPerson: job.toContactName || '',
+      PhoneNumber: job.toPhoneNumber || '',
+      Email: job.toEmail || '',
+      Notes: job.deliveryNotes || '',
+      To: {
+        StreetAddress: job.toAddress,
+        Suburb: job.toSuburb || '',
+        City: job.toCity || '',
+        PostCode: job.toPostCode || '',
+        CountryCode: 'NZ',
+      },
+    },
+    Packages: buildPackages(job.jobItems),
+    ClientReferenceA: job.clientRefA || '',
+    ClientNotes: `Booked via email from: ${job.senderEmail || 'unknown'}`,
+    JobNotificationType: 'EMAIL',
+    JobNotificationEmail: job.senderEmail || '',
+    IsSignatureRequired: true,
+    IsSaturdayDelivery: false,
+    IsDangerousGoods: false,
+    SourceId: 5, // Email parser source
+  };
+}
+
+function buildPackages(items) {
+  if (!items || items.length === 0) {
+    return [{
+      Quantity: 1,
+      Weight: 0,
+      Length: 0,
+      Height: 0,
+      Width: 0,
+    }];
+  }
+
+  return items.map(item => ({
+    Quantity: item.items || item.quantity || 1,
+    Weight: item.weight || 0,
+    Length: item.length || 0,
+    Height: item.height || 0,
+    Width: item.depth || item.width || 0,
+    Description: item.notes || '',
+  }));
 }
